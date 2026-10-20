@@ -6,182 +6,145 @@ from datetime import date
 st.set_page_config(
     page_title="Smart Attendance Analyzer",
     page_icon="📚",
-    layout="wide"
+    layout="centered"
 )
 
 st.markdown("""
 <style>
 .stApp {
-    background-color: #f2f6fc;
+    background-color: #f3f7fc;
+    color: #172b4d;
 }
-h1 {
-    color: #17365d;
+h1, h2, h3, p, label, .stMarkdown {
+    color: #172b4d !important;
 }
 div[data-testid="stMetric"] {
-    background: white;
-    border: 1px solid #dce5f0;
-    padding: 18px;
+    background-color: #ffffff;
+    border: 1px solid #d4deeb;
+    padding: 16px;
     border-radius: 12px;
+}
+div[data-testid="stMetric"] label,
+div[data-testid="stMetricValue"] {
+    color: #17365d !important;
+}
+.stButton button {
+    background-color: #176b3a;
+    color: white !important;
+    border-radius: 8px;
+    font-weight: bold;
+}
+.stDownloadButton button {
+    background-color: #17365d;
+    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📚 Smart Attendance Analyzer")
-st.write("A simple tool to calculate student attendance and eligibility.")
-st.divider()
+st.write("Calculate attendance percentage and check eligibility.")
 
-# Attendance settings
-st.sidebar.header("⚙️ Settings")
-required_percentage = st.sidebar.slider(
-    "Required Attendance (%)",
+st.header("👨‍🎓 Student Details")
+
+student_name = st.text_input("Student Name")
+roll_number = st.text_input("Roll Number")
+
+department = st.selectbox(
+    "Department",
+    ["CSE", "IT", "ECE", "EEE", "Civil", "Mechanical", "Other"]
+)
+
+academic_year = st.selectbox(
+    "Academic Year",
+    ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+)
+
+report_date = st.date_input("Report Date", value=date.today())
+
+st.header("📊 Attendance Details")
+
+total_classes = st.number_input(
+    "Total Classes Conducted",
+    min_value=1,
+    value=40,
+    step=1
+)
+
+attended_classes = st.number_input(
+    "Classes Attended",
+    min_value=0,
+    max_value=int(total_classes),
+    value=min(32, int(total_classes)),
+    step=1
+)
+
+required_percentage = st.slider(
+    "Minimum Required Attendance (%)",
     min_value=50,
     max_value=100,
     value=75
 )
 
-# Student details
-st.header("👩‍🎓 Student Details")
+if st.button("Calculate Attendance", use_container_width=True):
 
-col1, col2 = st.columns(2)
-
-with col1:
-    student_name = st.text_input("Student Name")
-    roll_number = st.text_input("Roll Number")
-    department = st.selectbox(
-        "Department",
-        ["CSE", "IT", "ECE", "EEE", "Mechanical", "Civil", "Other"]
-    )
-
-with col2:
-    academic_year = st.selectbox(
-        "Academic Year",
-        ["1st Year", "2nd Year", "3rd Year", "4th Year"]
-    )
-    report_date = st.date_input("Report Date", value=date.today())
-
-st.divider()
-
-# Attendance inputs
-st.header("📊 Attendance Details")
-
-col3, col4 = st.columns(2)
-
-with col3:
-    total_classes = st.number_input(
-        "Total Classes Conducted",
-        min_value=1,
-        max_value=10000,
-        value=40,
-        step=1
-    )
-
-with col4:
-    attended_classes = st.number_input(
-        "Classes Attended",
-        min_value=0,
-        max_value=10000,
-        value=32,
-        step=1
-    )
-
-# Calculate attendance
-if st.button("Calculate Attendance", type="primary", use_container_width=True):
-
-    if not student_name.strip():
-        st.error("Please enter the student name.")
-
-    elif attended_classes > total_classes:
-        st.error("Classes attended cannot exceed total classes conducted.")
+    if not student_name.strip() or not roll_number.strip():
+        st.warning("Please enter the student name and roll number.")
 
     else:
-        percentage = (attended_classes / total_classes) * 100
-        missed_classes = total_classes - attended_classes
+        percentage = (
+            attended_classes / total_classes
+        ) * 100
 
-        st.divider()
+        eligible = percentage >= required_percentage
+
         st.header("📋 Attendance Report")
 
-        st.write(f"**Student Name:** {student_name}")
-        st.write(f"**Roll Number:** {roll_number or 'Not provided'}")
-        st.write(f"**Department:** {department}")
-        st.write(f"**Academic Year:** {academic_year}")
-        st.write(f"**Report Date:** {report_date}")
+        col1, col2 = st.columns(2)
 
-        m1, m2, m3 = st.columns(3)
+        col1.metric("Attendance", f"{percentage:.2f}%")
+        col2.metric(
+            "Classes Attended",
+            f"{int(attended_classes)}/{int(total_classes)}"
+        )
 
-        m1.metric("Attendance", f"{percentage:.2f}%")
-        m2.metric("Classes Attended", f"{attended_classes}/{total_classes}")
-        m3.metric("Classes Missed", str(missed_classes))
-
-        st.progress(min(percentage / 100, 1.0))
-
-        if percentage >= required_percentage:
-            st.success(
-                f"✅ Eligible! Attendance is at least {required_percentage}%."
-            )
-            st.balloons()
-
-            classes_needed = 0
-
+        if eligible:
+            st.success("Eligible: attendance requirement met.")
         else:
-            st.warning(
-                f"⚠️ Attendance is below {required_percentage}%."
-            )
+            st.error("Not Eligible yet: attendance is below the requirement.")
 
-            if required_percentage == 100:
-                classes_needed = total_classes - attended_classes
-            else:
-                needed = (
-                    required_percentage * total_classes
-                    - 100 * attended_classes
-                ) / (100 - required_percentage)
+            if required_percentage < 100:
+                needed = math.ceil(
+                    (
+                        required_percentage * total_classes / 100
+                        - attended_classes
+                    )
+                    / (1 - required_percentage / 100)
+                )
+                st.info(
+                    f"Attend the next {max(0, needed)} classes "
+                    "without absence to reach the required percentage."
+                )
 
-                classes_needed = max(0, math.ceil(needed - 1e-10))
-
-            st.info(
-                f"Attend the next {classes_needed} classes consecutively "
-                f"to reach {required_percentage}% attendance."
-            )
-
-        # Create downloadable report
-        report = {
-            "Student Name": student_name.strip(),
-            "Roll Number": roll_number or "Not provided",
+        report = pd.DataFrame([{
+            "Student Name": student_name,
+            "Roll Number": roll_number,
             "Department": department,
             "Academic Year": academic_year,
             "Report Date": str(report_date),
             "Total Classes": int(total_classes),
             "Classes Attended": int(attended_classes),
-            "Classes Missed": int(missed_classes),
             "Attendance Percentage": round(percentage, 2),
             "Required Percentage": required_percentage,
-            "Eligibility": (
-                "Eligible"
-                if percentage >= required_percentage
-                else "Below Required Attendance"
-            ),
-            "Additional Classes Needed": int(classes_needed)
-        }
+            "Eligibility": "Eligible" if eligible else "Not Eligible"
+        }])
 
-        st.subheader("📁 Download Report")
-
-        report_df = pd.DataFrame([report])
+        st.subheader("Complete Report")
+        st.dataframe(report, use_container_width=True)
 
         st.download_button(
-            label="⬇️ Download Attendance Report (CSV)",
-            data=report_df.to_csv(index=False).encode("utf-8-sig"),
+            "Download Attendance Report (CSV)",
+            data=report.to_csv(index=False).encode("utf-8"),
             file_name="attendance_report.csv",
             mime="text/csv",
             use_container_width=True
         )
-
-        with st.expander("View Complete Report"):
-            st.dataframe(report_df, use_container_width=True)
-
-else:
-    st.info(
-        "Enter the student details and attendance information, "
-        "then click Calculate Attendance."
-    )
-
-st.divider()
-st.caption("Smart Attendance Analyzer | Student Project")
